@@ -1,0 +1,504 @@
+---
+title: "Population,Income and Life Expectancy of Countries EDA "
+author: "Suraj Radhakrishnan"
+date: "February 10, 2019"
+output: html_document
+---
+
+```{r setup,include=FALSE}
+knitr::opts_knit$set(root.dir = 'C:/Users/prc0549/Documents')
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Basic overview
+
+This project involves the exploratory data analysis of the change in population, life expectancy and income of countries all across the world by year. The dataset used for the project contains the required data for each of these countries by region and year. 
+
+# Purpose
+
+In this project, we will attempt to identify regions and countries that have shown the highest income and life expectancy. The project will also analyze if there is a significant change in these metrics over time. We will attempt to analyze if there is any correlation in the change of these metrics. The project will also involve the use of clustering techniques to group countries based on the metrics of population, life expectancy and income. Over the course of the exploratory data analysis, the project will also attempt to identify other questions about the data.
+
+
+#Data source description
+
+The name of the dataset given to us is gapminder.csv. The dataset contains six fields: Country, year, population, Income, Region. The source of the data is from github user 'Sarah Bird'. The link of the datasource is given below:
+
+https://raw.githubusercontent.com/birdsarah/pydata-nc/master/tutorial/assets/gapminder.csv
+
+#Data source exploration
+Let us first upload the data in R and load the required packages for our analysis.
+
+```{r,echo = TRUE,warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(factoextra)
+library(ggplot2)
+library(tidyverse)
+library(lvplot)
+library(hexbin)
+library(cluster)
+library(gridExtra)
+library(tibble)
+
+#Loading the data to R using the data_csv command
+Data <- read_csv("MS Analytics/ANLY 506/github/ANLY-506-Assignment/Data/gapminder.txt")
+
+#Checking the head and tail of the data to make sure data is loaded correctly
+head(Data)
+tail(Data)
+
+#Viewing the data in R
+View (Data)
+```
+
+Now that we have checked that the data has been loaded correctly, let us proceed to do some initial exploration to further understand the data.
+
+```{r,echo = TRUE}
+
+#Checking the structure of the data to see data types and number of records
+str(Data)
+
+#Counting the number of distinct countries in our data using length and unique
+length(unique(Data$Country))
+
+#Checking the frequency of countries and regions in the data
+table(Data$region)
+table(Data$Country)
+
+
+#Summarize the data to obtain descriptive statistics
+summary(Data)
+```
+
+The dataset contains a total of 41824 records with 6 variables. The data set goes back all the way to 1800 to the most recent year which is 2015. The 6 variables and the corresponding data types are shown below:
+
+1. Country - Character
+2. Year - Integer
+3. Life - Numeric
+4. Population - Numeric
+5. Income - Numeric
+6. Region - Character
+
+Quickly combing through the data we notice there are several missing observations which we will have to account for. Most of the missing observations are for the population field which is missing for 25817 entries. Income field is missing for a total of 2341 recoreds. Straightaway we can hypothesize that it might be difficult to perform any analysis with the population field. Further analysis needs to be carried out on how to circumvent this issue.
+
+The last country has a special character which prevents R from loading it properly. 
+
+```{r,echo = TRUE}
+#Changing the special character to 'A'
+Data [41275:41284,1] <- "Aland"
+```
+
+
+There is data about a total of 197 countries ranging from 1800 to 2015. The  197 countries are from a total of 6 regions. Looking at the countries data, we can observe that not all countries have data for all the years ranging from 1800 to 2015. Andorra, for instance only has 46 records.
+
+```{r,echo = TRUE}
+range(Data$Year[Data$Country == "Andorra"])
+```
+
+Andorra only has data from 1970 to 2015. 
+
+##Missing data
+
+From the initial exploration of the data we can hypothesize that all the countries have population for the last 65 years (after 1950). Let us check this.
+
+```{r,echo = TRUE}
+#Using groupby, summarize and pipe operator for the analysis
+
+#Grouping the data by year and computing the number of countries, number of missing values for income and population
+missing <- Data %>%
+group_by(Year) %>%
+summarise(
+  countn = n(),
+  Income_NAs = sum(is.na(income)),
+  Population_NAs = sum(is.na(population))
+)
+
+#Using ggplot to plot the number of missing values by year for population
+ggplot(data = missing) +
+  geom_point(mapping = aes(x = Year, y = Population_NAs)) + ggtitle("Missing values of population by year")+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+As expected there are very few missing values for population after the year 1950. However, we notice an interesting pattern in our population data. It is observed that most countries have population data once every 10 years before 1950. Therefore, when we need to analyze the population data, we can only use the population once every 10 years before 1950
+
+Let us now understand the missing values in the incomes.
+
+```{r,echo = TRUE}
+#Using ggplot to plot the number of missing values by year for income
+ggplot(data = missing) +
+  geom_point(mapping = aes(x = Year, y = Income_NAs))+ ggtitle("Missing values of income by year")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+Looking at the plot for missing values of income it appears that income is always missing for a certain few countries. Let us investigate further.
+
+```{r}
+#Grouping the data by countries to investigate missing values of incomes. Using the pipe operator in conjunction with groupby, summarize and filter
+missingincome <- Data %>%
+group_by(Country) %>%
+summarise(
+  countn = n(),
+  Income_NA2 = sum(is.na(income))
+)%>%
+filter(Income_NA2>0)  
+missingincome
+
+```
+
+From the data above, it is observed that income data is only missing for a total of 15 countries in our dataset of 197 countries. It is also observed that for almost all the countries the income field is missing for all observations. Croatia is the only exception which has income missing for 20 of the 216 observations. For all analyses with income, we can just exclude these countries with missing incomes. They form only a fraction of the dataset.
+
+Let us now understand the distribution of the various regions and how countries are distributed within the regions.
+
+```{r}
+#Plotting the number of observations by region to understand the spread of countries
+ggplot(data = Data) +
+  geom_bar(mapping = aes(x = region))+theme(plot.title = element_text(hjust = 0.5))+ggtitle("Number of observations by region")
+
+```
+
+
+As it can be observed from the plot, there is a significant imbalance in the data available. South Asia has the least number of observations with 1728 observations. Sub-Saharan Africa has the most observations with 10562 followed closely by Europe & Central Asia.
+
+```{r}
+#Using the previously created missing dataframe which contains data grouped by year to identify the year with all 197 countries
+missing$Year [missing$countn == 197]
+```
+
+
+We also find that there is only 1 year in the entire dataset with all the 197 countries. Using that year we pull the number of countries by region.
+
+```{r}
+
+#Using the year of 1997 to identify the number of countries in each region
+region <- Data %>%
+group_by(Year,region) %>%
+summarise(
+  countn = n()
+) %>%
+  filter(Year == 1997)
+region
+```
+
+#Univariate plots
+
+##Life expectancy
+Life expectancy data denotes the life expectancy of the respective country measured at a particular point in time. We do not have any problems with the life expectancy field as data is present for all the observations.
+
+Let us plot the life expectancy data by regin to understand how the life expectancy has changed over the years.
+
+```{r}
+
+#Grouping the data by region and calculating the mean to analyze the life expectancy
+byregion <- Data %>%
+group_by(Year,region) %>%
+summarise(
+  countn = n(),
+  life = mean(life, na.RM = TRUE))
+
+#Plotting a line plot for each region  by year
+ggplot(data = byregion, aes(x = Year, y = life,color = region)) +
+  geom_point() + geom_smooth() + ggtitle("Life expectancy by year & region")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+From the line plot, it is observed that the life expectancy is increasing in a similar fashion for all regions. Some unique patterns are observed during the war years where the life expectancy has dropped significantly. Sub-Saharan Africa countries show a significant change in the pattern after the 1980's. Let us plot out each region separately to identify if there is any specific outlier causing it.
+
+```{r}
+#Plotting life expectancy by region
+#Using the theme argument to hide the legend and the x-axis tickmark labels
+ggplot(data = Data, aes(x = Year, y = life,color = Country)) +
+  geom_line() + facet_grid(.~region) + ggtitle("Life expectancy by year & region")+ theme(legend.position="none",axis.text.x = element_blank(),plot.title = element_text(hjust = 0.5))
+```
+
+
+In the plots above, each colored line represents a country. We can identify that there are no signficant outliers or wrong observations that could be skewing the Sub Saharan Africa data.
+
+Let us use a box plot to summarize the results of life expectancy data based on the year of 2015 which is the most recent data in our dataset.
+
+```{r}
+#Boxplot of life expectancy by region for year 2015
+Data%>%
+  filter(Year == 2015)%>%
+ggplot(mapping = aes(x = region, y = life)) +
+  geom_boxplot()+scale_x_discrete(labels = function(region) lapply(strwrap(region, width = 10, simplify = FALSE), paste, collapse="\n"))+theme(plot.title = element_text(hjust = 0.5))+ggtitle("Life expectancy by region")
+```
+
+Europe and Central Asia region has the highest median life expectancy of all regions followed by Middle East & North Africa. South Asia and Sub-Saharan Africa have the lowest life expectancy by region.
+
+##Income 
+Moving on to univariate analysis of income, we recall that there were several countries that had the income variable missing in the dataset. Let us analyze the mean income by region.
+
+```{r}
+
+#Grouping the data by region and calculating the mean salary
+
+#Data with NAs are first removed before analyzing the data
+byregion3 <- na.omit(Data) %>%
+group_by(Year,region) %>%
+summarise(
+  income.avg = mean(income, na.RM = TRUE))
+
+#Plotting a line plot for each region by year
+ggplot(data = byregion3, aes(x = Year, y = income.avg,color = region)) + geom_point()+
+geom_smooth(method="loess") + ggtitle("Income by year & region")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+Three distinct clusters are observed by looking at the region plots. It is observed that Middle East and North African countries have the highest mean income. Europe and Central Asia countries have a similarly high income. America and East Asia and Pacific countries have similar average incomes whereas South Asia and Sub Saharan African countries have the least income.   
+
+Let us now look at the charts by country and box and whisker plots to understand if there are significant outliers in the data.
+
+```{r}
+#Plotting income by region and country
+#Using the theme argument to hide the legend and the x-axis tickmark labels
+ggplot(data = na.omit(Data), aes(x = Year, y = income,color = Country)) +
+  geom_line() + facet_grid(.~region) + ggtitle("Income by year & region")+ theme(legend.position="none",axis.text.x = element_blank(),plot.title = element_text(hjust = 0.5))
+
+#Boxplot of income by region for year 2015
+na.omit(Data)%>%
+  filter(Year == 2015)%>%
+ggplot(mapping = aes(x = region, y = income)) +
+  geom_boxplot()+scale_x_discrete(labels = function(region) lapply(strwrap(region, width = 10, simplify = FALSE), paste, collapse="\n"))+theme(plot.title = element_text(hjust = 0.5))+ggtitle("Income by region")
+
+#Identifying outliers by region
+na.omit(Data)%>%
+  filter(Year == 2015)%>%
+  group_by(region) %>%
+  top_n(3,income)
+```
+
+Some significant outliers are observed from the median salaries for most of the regions. Qatar is identified as the biggest outlier as it has an income of 132,887 which belongs to the Middle East & North Africa region. This will likely be a problem in the cluster analysis. 
+
+##Population
+Population metric is explored by looking at a simple line chart by region keeping in mind that population metric was only recorded once every 10 years till 1950. 
+
+```{r}
+
+#Grouping the data by region and calculating the total population
+
+#Data with NAs are first removed before analyzing the data
+byregion2 <- na.omit(Data) %>%
+group_by(Year,region) %>%
+summarise(
+  pop.total = sum(population, na.RM = TRUE))
+
+#Plotting a line plot for each region by year
+ggplot(data = byregion2, aes(x = Year, y = pop.total,color = region)) + geom_point()+
+geom_smooth(method="loess") + ggtitle("Total population by year & region")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+The population seems to be increasing exponentially for most of the regions following a similar curve. Particularly significant growth is observed for East Asia & Pacific region, South Asia and Sub Saharan Africa. 
+
+Similar to the life expectancy, let us look at the charts by country and box and whisker plots to understand if there are significant outliers in the data.
+
+```{r}
+#Plotting population by region and country
+#Using the theme argument to hide the legend and the x-axis tickmark labels
+ggplot(data = na.omit(Data), aes(x = Year, y = population,color = Country)) +
+  geom_line() + facet_grid(.~region) + ggtitle("Population by year & region")+ theme(legend.position="none",axis.text.x = element_blank(),plot.title = element_text(hjust = 0.5))
+
+#Boxplot of population by region for year 2015
+na.omit(Data)%>%
+  filter(Year == 2015)%>%
+ggplot(mapping = aes(x = region, y = population)) +
+  geom_boxplot()+scale_x_discrete(labels = function(region) lapply(strwrap(region, width = 10, simplify = FALSE), paste, collapse="\n"))+theme(plot.title = element_text(hjust = 0.5))+ggtitle("Population by region")
+```
+
+
+As it can be observed from the plots, the East Asia and South Asia regions are significantly skewed by the presence of China and India respectively. No other significant outliers or anomalies were observed in the data. In order to make sense of the box plot, we repeat the analysis after filtering out India and China.
+
+```{r}
+#Boxplot of population by region for year 2015 ommiting India and China
+na.omit(Data)%>%
+  filter(Year == 2015, Country != "India", Country != "China")%>%
+ggplot(mapping = aes(x = region, y = population)) +
+  geom_boxplot()+scale_x_discrete(labels = function(region) lapply(strwrap(region, width = 10, simplify = FALSE), paste, collapse="\n"))+theme(plot.title = element_text(hjust = 0.5))+ggtitle("Population by region")
+```
+
+The box plot still has significant outliers which leads us to conclude that population is significantly skewed by country. We can confirm this by drawing a histogram of our data.
+
+```{r}
+
+#Histogram of population with a bin width of 10000000
+na.omit(Data)%>%
+  filter(Year == 2015)%>%
+ggplot() +
+  geom_histogram(mapping = aes(x = population), binwidth = 10000000)
+```
+
+The data is very skewed as expected. Let us zoom into exlcude the outliers and identify the countries with high population that are outliers in addition to India and China.
+
+```{r}
+#Histogram of population with a bin width of 10000000 zooming in
+
+na.omit(Data)%>%
+  filter(Year == 2015)%>%
+ggplot() +
+  geom_histogram(mapping = aes(x = population), binwidth = 10000000)+coord_cartesian(xlim = c(0, 100000000))
+
+#Filtering outliers
+
+unusual <- na.omit(Data) %>% 
+  filter(Year == 2015,population > 100000000 | population<100000) %>% 
+  select(region,Country, population) %>%
+  arrange(desc(population))
+unusual
+```
+
+
+#Covariation between variables for the countries
+
+Let us look for patterns in the data to understand if there is any relationship between the population, income and life expectancy. We can do this using scatter plots.
+
+```{r}
+
+#Scatter plot between income and population
+na.omit(Data)%>%
+  filter(Year == 2015)%>%
+ggplot() +
+  geom_point(mapping = aes(x = population, y = income,color=region))+theme(plot.title = element_text(hjust = 0.5))+ggtitle("Relationship between income and population")
+```
+
+There does not look to be any pattern that can be observed from the population and income. Let us proceed to looking at the relationship between population and life expectancy.
+
+```{r}
+
+#Scatter plot between life expectancy and population
+na.omit(Data)%>%
+  filter(Year == 2015)%>%
+ggplot() +
+  geom_point(mapping = aes(x = population, y = life,color=region))+theme(plot.title = element_text(hjust = 0.5))+ggtitle("Relationship between life expectancy and population")
+```
+
+Again, there does not look to be any pattern that can be observed from the population and income.
+
+```{r}
+
+#Scatter plot between life expectancy and income
+na.omit(Data)%>%
+  filter(Year == 2015)%>%
+ggplot() +
+  geom_point(mapping = aes(x = income, y = life,color=region))+theme(plot.title = element_text(hjust = 0.5))+ggtitle("Relationship between life expectancy and income")
+```
+
+There seems to be a marginal correlation between the life expectanct and income. As income goes up, there also is an increase observed in life expectancy.This pattern seems to be across regions and not specific to one particular region. 
+
+#Clustering analysis
+For our clustering analysis, we will use the metrics of population, income and life expectancy to find clusters of countries. We will use the k means clustering method. Let us load the data and get it in the required format for clustering analysis.
+
+```{r}
+
+#Removing the NAs from the data and creating a dataset with just 2015 data
+cluster.data <- as.data.frame(Data) %>% 
+na.omit(Data)%>%
+  filter(Year == 2015)
+
+#Scaling the numeric variables
+cluster.data$population <- scale(cluster.data$population)
+cluster.data$income <- scale(cluster.data$income)
+cluster.data$life <- scale(cluster.data$life)
+
+#Moving the country field to the rownames
+rownames(cluster.data) <- cluster.data$Country
+cluster.data$Country <- NULL
+cluster.data$region <- NULL
+cluster.data$Year <- NULL
+
+```
+
+Let us now compute the distance matrix.
+```{r}
+#Computing the distance matrix
+distance <- get_dist(cluster.data)
+fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+```
+
+##Determining the optimal number of clusters
+Let us now compute the optimal number of clusters using the various methods we have available.
+
+###Elbow method
+
+Elbow method can be computed this using the fviz_nbclust function as shown below:
+
+```{r}
+#Using Elbow method to find optimal number of clusters
+set.seed(123)
+fviz_nbclust(cluster.data, kmeans, method = "wss")
+```
+
+This method indicates that the optimal number of clusters is 4 as evidenced by the bend in the elbow.
+
+###Average Silhouette method
+
+Average Silhouette method method can also be computed this using the fviz_nbclust function as shown below:
+
+```{r}
+#Using silhouette method to find optimal number of clusters
+fviz_nbclust(cluster.data, kmeans, method = "silhouette")
+```
+
+This method indicates that the optimal number of clusters is 5.
+
+###Gap statistic method
+
+We can compute this using the clusGap function which provides the gap statistic and a standard error for the output. R code is shown below:
+
+```{r}
+# compute gap statistic
+set.seed(123)
+gap_stat <- clusGap(cluster.data, FUN = kmeans, nstart = 25,
+                    K.max = 20, B = 50)
+# Print the result to find optimal number of clusters
+print(gap_stat, method = "firstmax")
+
+fviz_gap_stat(gap_stat)
+```
+
+This method indicates that the optimal number of clusters is 2.
+
+##Final K means clustering
+As all of the methods yielded different results, we choose the number of clusters to be 4 or 5. 2 clusters are deemed to not meet the requirements as we want to slice the data differently. Let us contine the clustering analysis with 4 clusters. 
+
+
+```{r}
+
+#4 clusters
+set.seed(123)
+final1 <- kmeans(cluster.data, 4, nstart = 25)
+print(final1)
+```
+
+We visualize the results using fviz_cluster function.
+
+```{r}
+#Visualizing the clusters
+fviz_cluster(final1, data = cluster.data)
+```
+
+We observe similar results when we use 5 clusters as well. From the results, it is clear that the population of India and China is significantly skewing the results. Let us repeat the analysis after removing the population metric sticking to 4 clusters.
+
+```{r}
+
+#4 clusters after removing the population metric
+
+cluster.data$population <- NULL
+set.seed(123)
+final2 <- kmeans(cluster.data, 4, nstart = 25)
+print(final2)
+
+#Number of countries in each cluster
+final2$size
+
+#Visualizing the clusters after removing the population metric
+fviz_cluster(final2, data = cluster.data)
+```
+
+These results look to be more acceptable as there are better distribution of countries between the 4 clusters. Countries in cluster 1 have the highest life expectancy and income and can be classified as developed countries. There are a total of 31 countries in this cluster. Some of the prominent countries in this group are United States, United Kingdom, United Arab Emirates, Japan, France and Italy. 
+
+Similarly cluster 3 also consists of developed countries which have life expectancy similar to cluster 1 but higher incomes. Cluster 3 is the smallest cluster and has only 5 countries. Qatar, Luxembourg, Kuwait, Singapore and Brunei are the only countries in this cluster. 
+
+Cluster 2 has the largest number of countries with 82 and has a wide variety of developing countries. Prominent countries in this group are China, Argentina, Brazil, Mexico.  
+
+Group 4 is the group of least developed countries according to the cluster analysis based on income and life expectancy in the year 2015. This group contains 59 countries. Surprisingly India shows up on this list. Other countries include Zimbabwe, South Africa, Pakistan and Namibia. 
+
+#Summary
+Exploratory data analysis was carried out on the gapminder dataset using various data wrangling techniques. Analysis was done to identify the countries that have the highest life expectancy and income. Data was also analayzed to find patterns over the years and to help identify countries that were different than their region. It was found that countries belonging to the Europe & Central Asia region and Middle East & North Africa region had the highest meadian life expectancy and income. South Asia and East Asia countries performed significantly better on population. This was skewed by a large extent by India and China which have significantly higher populations. Cluster analysis was performed to identify groups of countries based on their life expectancy and income. Based on these 2 metrics 4 clusters were formed using the K means clustering method. Most recent data of 2015 was used for this analysis. This grouped the countries based on which countries have the higher life expectancy and income.
