@@ -34,7 +34,7 @@ The project will use this methodology through every step and revise the question
 
 The project will adequately report the steps followed in the project and the findings of the project.
 
-##Data source description
+## Data source description
 
 The name of the dataset given to us is gapminder.csv. The dataset contains six fields: Country, year, population, Income, Region. The source of the data is from github user 'Sarah Bird'. The link of the datasource is given below:
 
@@ -42,7 +42,7 @@ https://raw.githubusercontent.com/birdsarah/pydata-nc/master/tutorial/assets/gap
 
 The dataset contains a total of 41824 records with 6 variables. Quickly combing through the data we notice there are several missing observations which we will have to account for. There is data about a total of 197 countries ranging from 1800 to 2015. The  197 countries are from a total of 6 regions. It is also noted that population is not a numeric variable whereas life expectancy and income are numeric variables. 
 
-##Acknowledgements
+## Acknowledgements
 
 1. Professor Olga Scrivner
 2. Art of Data Science by Roger Peng and Elizabeth Matsui
