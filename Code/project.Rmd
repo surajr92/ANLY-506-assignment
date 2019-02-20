@@ -9,6 +9,9 @@ output: html_document
 knitr::opts_knit$set(root.dir = 'C:/Users/prc0549/Documents')
 knitr::opts_chunk$set(echo = TRUE)
 ```
+The entire R code and html document are also uploaded in github under the following link. The code and HTML are in the code folder:
+
+https://github.com/surajr92/ANLY-506-assignment
 
 #Basic overview
 
@@ -456,7 +459,7 @@ fviz_gap_stat(gap_stat)
 This method indicates that the optimal number of clusters is 2.
 
 ##Final K means clustering
-As all of the methods yielded different results, we choose the number of clusters to be 4 or 5. 2 clusters are deemed to not meet the requirements as we want to slice the data differently. Let us contine the clustering analysis with 4 clusters. 
+As all of the methods yielded different results, we choose the number of clusters to be 4 or 5. 2 clusters are deemed to not meet the requirements as we want to slice the data differently. Let us continue the clustering analysis with 4 clusters. 
 
 
 ```{r}
@@ -492,11 +495,11 @@ final2$size
 fviz_cluster(final2, data = cluster.data)
 ```
 
-These results look to be more acceptable as there are better distribution of countries between the 4 clusters. Countries in cluster 1 have the highest life expectancy and income and can be classified as developed countries. There are a total of 31 countries in this cluster. Some of the prominent countries in this group are United States, United Kingdom, United Arab Emirates, Japan, France and Italy. 
+These results look to be more acceptable as there are better distribution of countries between the 4 clusters. Countries in cluster 3 consists of developed countries which have life expectancy similar to cluster 1 but higher incomes. Cluster 3 is the smallest cluster and has only 5 countries. Qatar, Luxembourg, Kuwait, Singapore and Brunei are the only countries in this cluster. It is noticeable that these countries have significantly smaller populations. 
 
-Similarly cluster 3 also consists of developed countries which have life expectancy similar to cluster 1 but higher incomes. Cluster 3 is the smallest cluster and has only 5 countries. Qatar, Luxembourg, Kuwait, Singapore and Brunei are the only countries in this cluster. 
+Cluster 1 have the highest life expectancy similar to cluster 3. They also have income and can be classified as developed countries as well. There are a total of 31 countries in this cluster. Some of the prominent countries in this group are United States, United Kingdom, United Arab Emirates, Japan, France and Italy. 
 
-Cluster 2 has the largest number of countries with 82 and has a wide variety of developing countries. Prominent countries in this group are China, Argentina, Brazil, Mexico.  
+Cluster 2 has the largest number of countries with 82 and has a wide variety of developing countries. Prominent countries in this group are China, Argentina, Brazil and Mexico.  
 
 Group 4 is the group of least developed countries according to the cluster analysis based on income and life expectancy in the year 2015. This group contains 59 countries. Surprisingly India shows up on this list. Other countries include Zimbabwe, South Africa, Pakistan and Namibia. 
 
